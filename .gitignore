@@ -1,0 +1,10 @@
+# Ambientes Virtuais 
+.venv/
+venv/
+__pycache__/
+
+# Variaveis de ambiente 
+.env
+
+# Dados brutos 
+datalake/
