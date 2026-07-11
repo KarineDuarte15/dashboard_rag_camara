@@ -32,7 +32,7 @@ def carregar_config() -> dict:
     config.setdefault("janela_descoberta_dias", 30)
     config.setdefault(
         "idiomas_legenda",
-        ["pt-BR", "pt", "en"],
+        ["pt-BR"],
     )
     config.setdefault(
         "caminho_sqlite",
