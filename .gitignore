@@ -8,3 +8,6 @@ __pycache__/
 
 # Dados brutos 
 datalake/
+
+*.pyc
+datalake/control/*.db

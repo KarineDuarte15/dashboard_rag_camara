@@ -1,3 +1,12 @@
+modo_demo: true
+dominio: politica_e_discurso_parlamentar
+max_videos_por_ciclo: 5
+janela_descoberta_dias: 30
+caminho_sqlite: datalake/control/ingestion.db
+
+idiomas_legenda:
+  - pt-BR
+
 # Configuração de Ingestão do YouTube
 dominio: "politica_e_discurso_parlamentar"
 intervalo_horas: 12  # O pipeline roda a cada 12 horas
