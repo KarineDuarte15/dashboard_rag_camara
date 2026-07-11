@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
+import logging
+import os
+from pathlib import Path
+import yaml
 from dotenv import load_dotenv
+from ingestor.pipeline import rodar_ciclo
+from ingestor.state import StateStore
 
 load_dotenv()
-
-import logging
-from pathlib import Path
-
-import yaml
-
-from ingestor.pipeline  import rodar_ciclo
-from ingestor.state import StateStore
 
 
 logging.basicConfig(
@@ -39,6 +37,15 @@ def carregar_config() -> dict:
         "datalake/control/ingestion.db",
     )
 
+    config["youtube_api_key"] = os.getenv(
+        "YOUTUBE_API_KEY"
+    )
+
+    if not config["modo_demo"] and not config["youtube_api_key"]:
+        raise ValueError(
+            "Modo real ativado, mas YOUTUBE_API_KEY não foi encontrada no .env"
+        )
+
     return config
 
 
@@ -51,7 +58,9 @@ def main() -> None:
             "Nenhum canal configurado em config/canais.yaml"
         )
 
-    store = StateStore(config["caminho_sqlite"])
+    store = StateStore(
+        config["caminho_sqlite"]
+    )
 
     resultados = []
 
