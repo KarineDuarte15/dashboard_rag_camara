@@ -754,9 +754,7 @@ A cada 12 horas.
 - Streamlit
 - SQLite/PostgreSQL
 - Sentence Transformers
-- FAISS ou ChromaDB
 - LangChain
-- OpenAI API
 - YouTube Data API
 - API Dados Abertos da Câmara
 - Docker
@@ -767,4 +765,4 @@ A cada 12 horas.
 
 # 📌 Resultado Esperado
 
-Ao final do processamento, o sistema entrega um relatório baseado em evidências públicas, permitindo ao usuário analisar a coerência entre o discurso e a prática legislativa de um parlamentar de forma transparente, automatizada e fundamentada em documentos oficiais.
+O sistema realiza o join entre dados não estruturados (YouTube/LLM) e dados estruturados (API Câmara/Transparência), criando um índice composto de eficiência parlamentar, ao final do processamento, o sistema entrega um relatório baseado em evidências públicas, permitindo ao usuário analisar a coerência entre o discurso e a prática legislativa de um parlamentar de forma transparente, automatizada e fundamentada em documentos oficiais.
