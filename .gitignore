@@ -1,13 +1,17 @@
-# Ambientes Virtuais 
+# Ambientes Virtuais e Cache
 .venv/
 venv/
+env/
 __pycache__/
 
-# Variaveis de ambiente 
+# Chaves de API e Segredos
 .env
 
-# Dados brutos 
-datalake/
+# Bancos de Dados locais
+*.db
+*.sqlite3
 
-*.pyc
-datalake/control/*.db
+# Arquivos de log e exportações
+*.log
+*.parquet
+mapeamento_projeto.txt
