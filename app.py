@@ -1,113 +1,124 @@
-import streamlit as st
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
+# Arquivo: app.py
+import sys
+import os
+import traceback
+import importlib  # <-- NOVO: Para matar o cache de importação
 from datetime import datetime
-from utils import tratar_dados_votacao, calcular_correlacao_partido, get_logs_auditoria
+import pandas as pd
+import streamlit as st
+import plotly.graph_objects as go
 
-# 1. Configuração de Layout Profissional
-st.set_page_config(
-    page_title="Radar Parlamentar | Auditoria",
-    page_icon="⚖️",
-    layout="wide"
-)
+# Módulos Modulares que criamos
+import orquestrador
+importlib.reload(orquestrador) # <-- NOVO: Força o Streamlit a ler o orquestrador.py atualizado do disco!
+from orquestrador import executar_pipeline_mestre
+from db_services import obter_lista_deputados, carregar_auditoria_gold
 
-# 2. Dados (Estratégia de Caching para performance)
-@st.cache_data
-def carregar_dados():
-    # Simulação da Camada Gold
-    return {
-        "atualizacao": datetime.now().strftime("%d/%m/%Y"),
-        "videos": 142,
-        "proposicoes": 89,
-        "confianca": 94.2,
-        "contradicao": 42.5
-    }
+# ==========================================
+# 1. Configuração de Layout e Estado
+# ==========================================
+st.set_page_config(page_title="Radar Parlamentar", page_icon="🏛️", layout="wide")
 
-meta = carregar_dados()
+if 'rodando' not in st.session_state: st.session_state.rodando = False
+if 'logs' not in st.session_state: st.session_state.logs = ""
+if 'deputado_atual' not in st.session_state: st.session_state.deputado_atual = None
 
-# 3. Barra Lateral (Inputs e Filtros - Profissional)
+# ==========================================
+# 2. Barra Lateral (Controles)
+# ==========================================
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/8150/8150100.png", width=60)
-    st.title("Configurações")
+    st.image("https://cdn-icons-png.flaticon.com/512/8150/8150100.png", width=80)
+    st.title("Radar Parlamentar")
     
-    with st.form("consulta_rag"):
-        deputado = st.selectbox("Selecione o Parlamentar", ["Erika Karine", "Deputado X", "Deputado Y"])
-        tema = st.text_area("Tema / Pergunta Semântica", value="Qual a postura sobre privatizações?")
-        partido = st.multiselect("Filtrar por Partido", ["PT", "PL", "PSDB", "MDB"])
+    lista_exibicao, mapeamento_deputados = obter_lista_deputados()
+
+    with st.form("form_auditoria"):
+        deputado_sel = st.selectbox("Selecione o Parlamentar", options=lista_exibicao, index=0)
+        nome_deputado_input = mapeamento_deputados[deputado_sel]
+        pergunta_tema = st.text_area("Tema de Auditoria", value="Como o deputado votou sobre alteração da jornada de trabalho?")
+        btn_processar = st.form_submit_button("🔎 Rodar Auditoria Completa", type="primary")
+
+    st.divider()
+    if st.button("🛑 Interromper / Limpar Status"):
+        st.session_state.rodando = False
+        st.session_state.logs = ""
+        st.rerun()
+
+# ==========================================
+# 3. Observabilidade e Motor (Execução)
+# ==========================================
+if btn_processar:
+    st.session_state.rodando = True
+    st.session_state.logs = ""
+    st.session_state.deputado_atual = nome_deputado_input
+
+if st.session_state.rodando:
+    st.subheader("⚙️ Painel de Observabilidade")
+    status_texto = st.empty()
+    barra_progresso = st.progress(0)
+    log_area = st.empty()
+
+    def atualizar_interface(mensagem, percentual):
+        status_texto.info(f"**Status:** {mensagem}")
+        barra_progresso.progress(percentual)
+        timestamp = datetime.now().strftime('%H:%M:%S')
+        st.session_state.logs += f"[{timestamp}] {mensagem}\n"
+        log_area.text_area("Console de Logs:", value=st.session_state.logs, height=300, disabled=True)
+
+    try:
+        # Executa o mestre
+        sucesso = executar_pipeline_mestre(st.session_state.deputado_atual, pergunta_tema, callback_progresso=atualizar_interface)
         
-        submit = st.form_submit_button("Analisar Coerência", type="primary")
+        if sucesso:
+            st.toast("Pipeline finalizado com sucesso!", icon="✅")
+            st.session_state.rodando = False
+            st.rerun()  # SÓ dá rerun e vai para o Dashboard se der 100% SUCESSO
+        else:
+            # SE FALHAR: Congela a tela aqui para o usuário conseguir ler o console!
+            status_texto.error("🛑 O pipeline foi abortado por uma falha interna. Verifique a última linha do console abaixo.")
+            st.stop() 
+            
+    except Exception as e:
+        # SE DER CRASH DE CÓDIGO: Congela e cospe o rastro do erro
+        st.session_state.logs += f"\n🚨 ERRO CRÍTICO CRASH DE CÓDIGO 🚨\n{traceback.format_exc()}\n"
+        log_area.text_area("Console de Logs:", value=st.session_state.logs, height=400, disabled=True)
+        status_texto.error("🚨 Ocorreu um erro físico de execução. Analise o rastro acima.")
+        st.stop()
 
-# 4. Área Principal (Dashboard Executivo)
-st.title("🏛️ Radar Parlamentar: Discurso vs. Prática")
-st.markdown("Auditoria inteligente via RAG Híbrido.")
-
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Presença", "92%", delta="-1%")
-col2.metric("Custo/Mês (Cota)", "R$ 42.500", delta="R$ +1.200")
-col3.metric("Produtividade (PLs)", "12", delta="2")
-col4.metric("Contradição", f"{meta['contradicao']}%", delta="-2.1%", delta_color="inverse")
-
-# Aba/Seção dedicada a Eficiência
-with st.expander("Eficiência Financeira vs. Legislativa", expanded=True):
-    st.subheader("Eficiência Financeira vs. Legislativa")
-    # Gráfico de dispersão (Scatter Plot) - mostra o custo x quantidade de leis
-    df_eficiencia = pd.DataFrame({
-        "Deputado": ["Erika", "Deputado X", "Deputado Y"],
-        "Custo (R$)": [45000, 38000, 52000],
-        "Leis Apresentadas": [12, 5, 8]
-    })
-    fig_scatter = px.scatter(df_eficiencia, x="Custo (R$)", y="Leis Apresentadas", 
-                             size="Custo (R$)", color="Deputado", hover_name="Deputado")
-    st.plotly_chart(fig_scatter, use_container_width=True)
-st.divider()
-
-if submit:
-    # Divisão em Abas (Melhor organização)
-    tab1, tab2, tab3 = st.tabs(["📊 Visão Geral", "🔗 Correlação de Votos", "🧠 Auditoria RAG"])
+# ==========================================
+# 4. Interface Principal (Dashboard)
+# ==========================================
+if not st.session_state.rodando:
+    st.title("🏛️ Radar Parlamentar: Discurso vs. Prática")
     
-    with tab1:
-        st.subheader("Análise Semântica de Contradição")
-        # Gráfico Gauge profissional
-        fig = go.Figure(go.Indicator(
-            mode = "gauge+number", value = meta["contradicao"],
-            gauge = {'axis': {'range': [0, 100]}, 'bar': {'color': "#1f77b4"}},
-            title = {'text': "Nível de Contradição"}
-        ))
-        st.plotly_chart(fig, use_container_width=True)
+    # Se acabou de processar ou mudou a seleção, busca os dados do deputado correto
+    alvo_busca = st.session_state.deputado_atual if st.session_state.deputado_atual else nome_deputado_input
+    dados = carregar_auditoria_gold(alvo_busca)
 
-    with tab2:
-        st.subheader("Frequência: Discurso vs. Prática")
-        df = pd.DataFrame({
-            "Tema": ["Privatização", "Saúde", "Educação"],
-            "YouTube": [45, 12, 30],
-            "Câmara": [3, 20, 15]
-        })
-        st.bar_chart(df.set_index("Tema"))
+    if not dados:
+        st.info("👈 Utilize o menu lateral para pesquisar um tema e iniciar a auditoria.")
+    else:
+        st.success(f"📌 Resultados da Auditoria para a pergunta: *\"{dados['pergunta']}\"*")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Vídeos Analisados", dados["total_videos"])
+        col2.metric("Votações Avaliadas", dados["total_votos"])
+        col3.metric("Confiança Vetorial", dados["confianca"])
+        col4.metric("Índice de Contradição", f"{dados['score_contradicacao']}%")
 
-    with tab3:
-        st.subheader("🔍 Auditoria de Fontes e Veracidade")
-        st.markdown("Monitoramento em tempo real dos chunks recuperados nos últimos 7 dias.")
-        df_logs = get_logs_auditoria()
-        # Filtro de data para os 7 dias
-        data_selecionada = st.date_input("Filtrar logs por data:", value=datetime.now())
+        st.divider()
+        col_gauge, col_text = st.columns([1, 2])
         
-        # Exemplo de tabela de auditoria real
-        df_fontes = pd.DataFrame({
-            "Timestamp": ["10/07/2026 10:00", "09/07/2026 14:30"],
-            "Fonte": ["YouTube (Transcrição)", "API Câmara (PL 456/23)"],
-            "Score de Relevância": [0.98, 0.92],
-            "Trecho Original": ["...privatização é urgente...", "...voto favorável na PL 456..."]
-        })
-        
-        # Exibição profissional das fontes
-        st.dataframe(df_fontes, use_container_width=True)
-        st.markdown("""
-        *Nota técnica:* Esta tabela exibe os *chunks* recuperados pelo motor de busca vetorial nos últimos 7 dias. 
-        Os scores refletem a similaridade semântica (Cosine Similarity) entre o discurso e a ação legislativa, 
-        garantindo que o sistema é totalmente auditável e transparente.
-        """)
-        
-        st.success("O sistema está operando em conformidade com o contrato de 7 dias de observação.")
-else:
-    st.info("👈 Utilize a barra lateral para configurar a sua investigação.")
+        with col_gauge:
+            st.subheader("Termômetro de Contradição")
+            fig = go.Figure(go.Indicator(mode="gauge+number", value=dados["score_contradicacao"], gauge={'axis': {'range': [None, 100]}, 'bar': {'color': "#1f77b4"}, 'steps': [{'range': [0, 30], 'color': "#d6e9c6"}, {'range': [30, 70], 'color': "#ffeb99"}, {'range': [70, 100], 'color': "#ff9896"}]}))
+            fig.update_layout(height=280, margin=dict(t=0, b=0, l=10, r=10))
+            st.plotly_chart(fig, use_container_width=True)
+            
+        with col_text:
+            st.subheader("Parecer Técnico da IA")
+            st.write(dados["resumo"])
+
+        if dados["evidencias"]:
+            st.subheader("🔍 Evidências Cruzadas Encontradas")
+            st.dataframe(pd.DataFrame(dados["evidencias"]), use_container_width=True)
