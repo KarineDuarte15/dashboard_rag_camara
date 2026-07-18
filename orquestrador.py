@@ -1,25 +1,36 @@
 # Arquivo: orquestrador.py
+import hashlib
 import logging
 import time
 import sqlite3
 import pandas as pd
 from pathlib import Path
 
-# --- Módulos da IA e Banco (Lincoln) ---
-from mini_esteira.mini_database import inicializar_mini_banco
-from mini_esteira.vetorizar_pergunta import obter_ou_criar_vetor_pergunta
-from mini_esteira.vetorizar_lote import vetorizar_proposicoes_faltantes
-from mini_esteira.comparar_vetores import executar_ranking_comparacao
+# --- Módulos de vetorização e cache (src/vetorizacao) ---
+from src.vetorizacao.mini_database import inicializar_mini_banco
+from src.vetorizacao.vetorizar_pergunta import obter_ou_criar_vetor_pergunta
+from src.vetorizacao.vetorizar_lote import vetorizar_proposicoes_faltantes
 
-# --- Módulos de ETL da Câmara (André) ---
-from etl_andre.Input_usuario import executar_assistente_legislativo
+# --- Módulo de busca vetorial / RAG (src/rag) ---
+from src.rag.comparar_vetores import executar_ranking_comparacao
 
-# --- Módulos de Ingestão do YouTube (Lucas) ---
-from ingestor.pipeline import rodar_ciclo
-from ingestor.state import StateStore
-from teste_deputado import gerar_channel_id_demo  
+# --- Módulo de roteamento semântico + ETL da Câmara (src/semantic_router) ---
+from src.semantic_router.input_usuario import executar_assistente_legislativo
+
+# --- Módulo de ingestão do YouTube (src/youtube) ---
+from src.youtube.pipeline import rodar_ciclo
+from src.youtube.state import StateStore
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+
+def gerar_channel_id_demo(nome_deputado: str) -> str:
+    """Cria um identificador estável para o deputado no modo demo."""
+    digest = hashlib.sha256(
+        nome_deputado.strip().lower().encode("utf-8")
+    ).hexdigest()[:12]
+
+    return f"DEPUTADO_DEMO_{digest}"
 
 def executar_pipeline_mestre(nome_deputado, pergunta_usuario, callback_progresso=None):
     """
@@ -151,7 +162,7 @@ def executar_pipeline_mestre(nome_deputado, pergunta_usuario, callback_progresso
     notificar("⏳ [FASE COERÊNCIA] Iniciando cruzamento e RAG analítico pelo Gemini...", 90)
     print("-"*75)
     
-    from mini_esteira.analisador_coerencia import gerar_auditoria_coerencia
+    from src.rag.analisador_coerencia import gerar_auditoria_coerencia
     
     # CORREÇÃO: Ajustado o nome do parâmetro para bater com o analisador
     auditoria_resultado = gerar_auditoria_coerencia(

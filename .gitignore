@@ -15,3 +15,6 @@ __pycache__/
 *.log
 *.parquet
 mapeamento_projeto.txt
+
+# Configuração local do Claude Code
+.claude/
