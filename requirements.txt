@@ -2,3 +2,8 @@ streamlit
 pandas
 plotly
 python-dotenv
+google-genai
+pandera
+google-api-python-client
+youtube-transcript-api
+requests
